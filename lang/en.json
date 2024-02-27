@@ -1,0 +1,10 @@
+{
+  "polyglot": {
+    "!lang": "unknown language",
+    "!actor": "No actor chosen.",
+    "!langs": "No languages available.",
+    "admin!lang": " actor does not understand ",
+    "lang": "Language",
+    "send": "Send"
+  }
+}

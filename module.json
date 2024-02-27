@@ -1,0 +1,25 @@
+{
+  "id": "polyglot",
+  "title": "Polyglot",
+  "description": "In Character speech can make use of known languages.",
+  "authors": [
+    {
+      "name": "Bryan Bonvallet"
+    }
+  ],
+  "version": "0.0.1",
+  "compatibility": {
+    "minimum": "10",
+    "verified": "11"
+  },
+  "scripts": [
+    "module/polyglot.js"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ]
+}

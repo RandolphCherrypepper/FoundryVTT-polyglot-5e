@@ -1,0 +1,10 @@
+<div id="polyglot-controls" class="flexrow">
+    <label>{{localize "polyglot.lang"}}:</label>
+    <select name="polyglotLanguageChosen">
+        <option value="{{default_language}}" selected="">{{default_language}}</option>
+        {{#each languages as |language|}}
+        <option value="{{language}}">{{language}}</option>
+        {{/each}}
+    </select>
+    <button id="polyglotSpeak">{{localize "polyglot.send"}}</button>
+</div>
