@@ -8,12 +8,12 @@
     }
   ],
   "url": "https://github.com/RandolphCherrypepper/FoundryVTT-polyglot-5e",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "compatibility": {
     "minimum": "11",
     "verified": "11"
   },
-  "scripts": [
+  "esmodules": [
     "module/polyglot.js"
   ],
   "languages": [

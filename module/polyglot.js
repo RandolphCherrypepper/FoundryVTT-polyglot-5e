@@ -1,7 +1,7 @@
 const DEBUG = true;
 function pg_debug(funcname,...args) {
     if (!DEBUG) return;
-    console.log("POLYGLOTDEBUG", funcname, ...args);
+    console.log("polyglot | DEBUG: ", funcname, ...args);
 }
 
 // Find a numerical hash/checksum value for the given text.
@@ -72,77 +72,6 @@ function getCurrentLanguages() {
 
 const empty_message = "...";
 
-// Re-render chat messages that use polyglot based on current token's language ability.
-// This is where you "understand the language".
-Hooks.on("renderChatMessage", (message, html) => {
-    pg_debug("renderChatMessage", message, html);
-    // only consider in character messages.
-    if (message.type !== CONST.CHAT_MESSAGE_TYPES.IC) return;
-
-    // extract polyglot data hidden in the message's flags.
-    let polyglot_data = message.flags.polyglot;
-    pg_debug("renderChatMessage", "polyglot_data", polyglot_data);
-    if (!polyglot_data) return;
-
-    // the language used to convey the message
-    let target_language = polyglot_data.language;
-
-    // check if the current user is an admin. they'll read all languages
-    // if not acting as another token.
-    let is_admin = (game.user?.isGM || game.data.isAdmin);
-    pg_debug("renderChatMessage", "is_admin", is_admin);
-
-    // determine current actor's spoken languages.
-    let languages = null;
-    let can_speak_language = null;
-    try {
-        languages = getCurrentLanguages();
-    } catch (err) {
-        if (err.code > 0) {
-            // something went wrong finding the language.
-            // so the player cannot currently understand the language.
-            can_speak_language = false;
-        } else {
-            // don't know what it was. chuck it higher.
-            throw err;
-        }
-    }
-
-    pg_debug("renderChatMessage", "can_speak_language early", can_speak_language);
-    // check to see if the language can be spoken.
-    if (can_speak_language === null && languages.has(target_language)) {
-        // can_speak_language wasn't already set to false, AND
-        // the actor can speak the language
-        can_speak_language = true;
-    } else {
-        can_speak_language = false;
-    }
-
-    // Get the language's symbol and either name or some note that it isn't understood.
-    let language_repr = languageRepresentation(target_language, can_speak_language);
-
-    // Note the language (perhaps not precisely)
-    message.flavor += " " + language_repr;
-    if (can_speak_language) {
-        // understands the language!
-        message.content = polyglot_data.content;
-    } else {
-        if (is_admin) {
-            // make sure the admin can actually see the message, but the current actor doesn't know it.
-            message.flavor += "(" + game.actors.get(actor_id)?.name + game.i18n.localize("polyglot.admin!lang") + target_language + ")";
-            message.content = polyglot_data.content;
-        } else {
-            // does not understand the language!
-            message.content = empty_message; // this is redundant but a good precaution.
-        }
-    }
-    pg_debug("renderChatMessage", "message", message);
-    pg_debug("renderChatMessage", "message_html", message.getHTML());
-
-    // replace the HTML element content with a new rendering of the ChatMessage we modified.
-    message.getHTML().then(message_dom => html[0].innerHTML = message_dom[0].innerHTML);
-});
-
 // This is where we send messages with language metadata.
 function speakLanguage(language, message) {
     pg_debug("speakLanguage", language, message);
@@ -185,51 +114,127 @@ function speakLanguage(language, message) {
     return cmi.create(chatData, createOptions);
 }
 
-// This is how we choose what language to speak.
-Hooks.on("renderSidebarTab", async (app, html, data) => {
-    pg_debug("renderSidebarTab", app, html, data);
-    // only operate on the actual chat bar
-    if (app.tabName !== "chat") return;
+// once game data is available, hook into the UI
+Hooks.once("ready", _ => {
+    console.log("polyglot | Initializing polyglot.");
 
-    // determine current actor's spoken languages.
-    let languages = null;
-    try {
-        languages = getCurrentLanguages();
-    } catch (err) {
-        // no way to inject languages, don't try.
-        pg_debug("renderSidebarTab", "no languages, bail");
-        return;
-    }
-    // convert languages to an array.
-    languages = languages.toObject();
-    pg_debug("renderSidebarTab", "languages", languages);
-    // pop off the first language as the default selection.
-    let default_language = languages.shift();
-    pg_debug("renderSidebarTab", "default_language", default_language);
-    pg_debug("renderSidebarTab", "languages", languages);
+    // This is how we choose what language to speak.
+    Hooks.on("renderSidebarTab", async (app, html, data) => {
+        pg_debug("renderSidebarTab", app, html, data);
+        // only operate on the actual chat bar
+        if (app.tabName !== "chat") return;
 
-    // generate the language drop-down and button.
-    let $content = $(await renderTemplate("modules/plotglot/templates/polyglot.html", { default_language, languages }));
-    pg_debug("renderSidebarTab", "content", $content);
-    // add the speech options under the chat box.
-    let $chat_form = html.find("#chat-form");
-    pg_debug("renderSidebarTab", "chat-form", $chat-form);
-    $chat_form.after($content);
-    // connect the speak button.
-    $content.find("#polyglotSpeak").on("click", e => {
-        pg_debug("#polyglotSpeak click", e);
-        // make sure no other click handlers for this button activate.
-        event.preventDefault();
-        pg_debug("#polyglotSpeak click", "#polyglotLanguageChosen", $content.find('#polyglotLanguageChosen'));
-        let language = $content.find('#polyglotLanguageChosen')[0].value;
-        pg_debug("renderSidebarTab", "language", language);
-        pg_debug("#polyglotSpeak click", "#chat-message", html.find("#chat-message"));
-        let chatbox = html.find("#chat-message")[0];
-        pg_debug("renderSidebarTab", "chatbox", chatbox);
-        let message = chatbox.value;
-        pg_debug("renderSidebarTab", "message", message);
-        await speakLanguage(language, message);
-        // message was successfully sent. clear the box.
-        chatbox.value = "";
+        // determine current actor's spoken languages.
+        let languages = null;
+        try {
+            languages = getCurrentLanguages();
+        } catch (err) {
+            // no way to inject languages, don't try.
+            pg_debug("renderSidebarTab", "no languages, bail");
+            return;
+        }
+        // convert languages to an array.
+        languages = languages.toObject();
+        pg_debug("renderSidebarTab", "languages", languages);
+        // pop off the first language as the default selection.
+        let default_language = languages.shift();
+        pg_debug("renderSidebarTab", "default_language", default_language);
+        pg_debug("renderSidebarTab", "languages", languages);
+
+        // generate the language drop-down and button.
+        let $content = $(await renderTemplate("modules/plotglot/templates/polyglot.html", { default_language, languages }));
+        pg_debug("renderSidebarTab", "content", $content);
+        // add the speech options under the chat box.
+        let $chat_form = html.find("#chat-form");
+        pg_debug("renderSidebarTab", "chat-form", $chat - form);
+        $chat_form.after($content);
+        // connect the speak button.
+        $content.find("#polyglotSpeak").on("click", e => {
+            pg_debug("#polyglotSpeak click", e);
+            // make sure no other click handlers for this button activate.
+            event.preventDefault();
+            pg_debug("#polyglotSpeak click", "#polyglotLanguageChosen", $content.find('#polyglotLanguageChosen'));
+            let language = $content.find('#polyglotLanguageChosen')[0].value;
+            pg_debug("renderSidebarTab", "language", language);
+            pg_debug("#polyglotSpeak click", "#chat-message", html.find("#chat-message"));
+            let chatbox = html.find("#chat-message")[0];
+            pg_debug("renderSidebarTab", "chatbox", chatbox);
+            let message = chatbox.value;
+            pg_debug("renderSidebarTab", "message", message);
+            await speakLanguage(language, message);
+            // message was successfully sent. clear the box.
+            chatbox.value = "";
+        });
     });
-});
+
+    // Re-render chat messages that use polyglot based on current token's language ability.
+    // This is where you "understand the language".
+    Hooks.on("renderChatMessage", (message, html) => {
+        pg_debug("renderChatMessage", message, html);
+        // only consider in character messages.
+        if (message.type !== CONST.CHAT_MESSAGE_TYPES.IC) return;
+
+        // extract polyglot data hidden in the message's flags.
+        let polyglot_data = message.flags.polyglot;
+        pg_debug("renderChatMessage", "polyglot_data", polyglot_data);
+        if (!polyglot_data) return;
+
+        // the language used to convey the message
+        let target_language = polyglot_data.language;
+
+        // check if the current user is an admin. they'll read all languages
+        // if not acting as another token.
+        let is_admin = (game.user?.isGM || game.data.isAdmin);
+        pg_debug("renderChatMessage", "is_admin", is_admin);
+
+        // determine current actor's spoken languages.
+        let languages = null;
+        let can_speak_language = null;
+        try {
+            languages = getCurrentLanguages();
+        } catch (err) {
+            if (err.code > 0) {
+                // something went wrong finding the language.
+                // so the player cannot currently understand the language.
+                can_speak_language = false;
+            } else {
+                // don't know what it was. chuck it higher.
+                throw err;
+            }
+        }
+
+        pg_debug("renderChatMessage", "can_speak_language early", can_speak_language);
+        // check to see if the language can be spoken.
+        if (can_speak_language === null && languages.has(target_language)) {
+            // can_speak_language wasn't already set to false, AND
+            // the actor can speak the language
+            can_speak_language = true;
+        } else {
+            can_speak_language = false;
+        }
+
+        // Get the language's symbol and either name or some note that it isn't understood.
+        let language_repr = languageRepresentation(target_language, can_speak_language);
+
+        // Note the language (perhaps not precisely)
+        message.flavor += " " + language_repr;
+        if (can_speak_language) {
+            // understands the language!
+            message.content = polyglot_data.content;
+        } else {
+            if (is_admin) {
+                // make sure the admin can actually see the message, but the current actor doesn't know it.
+                message.flavor += "(" + game.actors.get(actor_id)?.name + game.i18n.localize("polyglot.admin!lang") + target_language + ")";
+                message.content = polyglot_data.content;
+            } else {
+                // does not understand the language!
+                message.content = empty_message; // this is redundant but a good precaution.
+            }
+        }
+        pg_debug("renderChatMessage", "message", message);
+        pg_debug("renderChatMessage", "message_html", message.getHTML());
+
+        // replace the HTML element content with a new rendering of the ChatMessage we modified.
+        message.getHTML().then(message_dom => html[0].innerHTML = message_dom[0].innerHTML);
+    });
+})
